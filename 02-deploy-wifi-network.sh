@@ -14,9 +14,9 @@ set -euo pipefail
 # =========================
 # Variables
 # =========================
-SSID="Company-WiFi"
-WPA_PSK="ChangeThisPassword"
-CONNECTION_NAME="Company-WiFi"
+SSID="JV-WiFi"
+WPA_PSK="Pa$$w0rd!"
+CONNECTION_NAME="JV-WiFi"
 CONNECT_NOW="false"
 AUTOCONNECT="yes"
 LOG_FILE="/var/log/intune-wifi-profile.log"
