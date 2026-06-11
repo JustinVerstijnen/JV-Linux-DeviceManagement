@@ -1,20 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Optional direct accent color name.
-# Supported values: blue, teal, green, yellow, orange, red, pink, purple, slate
-# Leave empty to map ACCENT_HEX to the closest supported color.
-ACCENT_COLOR_NAME=""
-
-# HTML hex color that will be mapped to the closest supported Ubuntu accent color.
-ACCENT_HEX="#77B0DE"
-
-# Set to "prefer-dark" or "prefer-light".
-COLOR_SCHEME="prefer-light"
+ACCENT_COLOR_NAME="blue" # Supported values: blue, teal, green, yellow, orange, red, pink, purple, slate
+COLOR_SCHEME="prefer-light" # Set to "prefer-dark" or "prefer-light".
 
 # Apply to active graphical GNOME sessions when possible.
 APPLY_TO_ACTIVE_USERS="true"
-
 LOG_FILE="/var/log/intune-ubuntu-accent-color.log"
 
 # =========================
@@ -33,74 +24,29 @@ SUPPORTED_COLORS=("blue" "teal" "green" "yellow" "orange" "red" "pink" "purple" 
 
 is_supported_color() {
     local color="$1"
+
     for supported in "${SUPPORTED_COLORS[@]}"; do
-        [[ "$color" == "$supported" ]] && return 0
-    done
-    return 1
-}
-
-hex_to_rgb() {
-    local hex="${1#\#}"
-    local r=$((16#${hex:0:2}))
-    local g=$((16#${hex:2:2}))
-    local b=$((16#${hex:4:2}))
-    echo "$r $g $b"
-}
-
-distance_squared() {
-    local r1="$1" g1="$2" b1="$3" r2="$4" g2="$5" b2="$6"
-    echo $(( (r1-r2)*(r1-r2) + (g1-g2)*(g1-g2) + (b1-b2)*(b1-b2) ))
-}
-
-map_hex_to_color_name() {
-    local hex="$1"
-
-    if ! [[ "$hex" =~ ^#[0-9A-Fa-f]{6}$ ]]; then
-        echo "Invalid HTML hex color: $hex" >&2
-        exit 1
-    fi
-
-    read -r target_r target_g target_b < <(hex_to_rgb "$hex")
-
-    # Approximate Ubuntu/GNOME accent palette values.
-    declare -A color_hex=(
-        ["blue"]="#3584E4"
-        ["teal"]="#2190A4"
-        ["green"]="#3A944A"
-        ["yellow"]="#C88800"
-        ["orange"]="#E95420"
-        ["red"]="#C01C28"
-        ["pink"]="#D56199"
-        ["purple"]="#9141AC"
-        ["slate"]="#6F8396"
-    )
-
-    local best_color=""
-    local best_distance=""
-
-    for color in "${SUPPORTED_COLORS[@]}"; do
-        read -r r g b < <(hex_to_rgb "${color_hex[$color]}")
-        dist="$(distance_squared "$target_r" "$target_g" "$target_b" "$r" "$g" "$b")"
-
-        if [[ -z "$best_distance" || "$dist" -lt "$best_distance" ]]; then
-            best_distance="$dist"
-            best_color="$color"
+        if [[ "$color" == "$supported" ]]; then
+            return 0
         fi
     done
 
-    echo "$best_color"
+    return 1
 }
 
-if [[ -n "$ACCENT_COLOR_NAME" ]]; then
-    if ! is_supported_color "$ACCENT_COLOR_NAME"; then
-        echo "Unsupported accent color name: $ACCENT_COLOR_NAME"
-        echo "Supported values: ${SUPPORTED_COLORS[*]}"
-        exit 1
-    fi
-    SELECTED_COLOR="$ACCENT_COLOR_NAME"
-else
-    SELECTED_COLOR="$(map_hex_to_color_name "$ACCENT_HEX")"
+if [[ -z "$ACCENT_COLOR_NAME" ]]; then
+    echo "ACCENT_COLOR_NAME cannot be empty."
+    echo "Supported values: ${SUPPORTED_COLORS[*]}"
+    exit 1
 fi
+
+if ! is_supported_color "$ACCENT_COLOR_NAME"; then
+    echo "Unsupported accent color name: $ACCENT_COLOR_NAME"
+    echo "Supported values: ${SUPPORTED_COLORS[*]}"
+    exit 1
+fi
+
+SELECTED_COLOR="$ACCENT_COLOR_NAME"
 
 echo "Selected accent color: $SELECTED_COLOR"
 
@@ -128,6 +74,7 @@ else
     else
         GTK_THEME="Yaru-${SELECTED_COLOR}"
     fi
+
     ICON_THEME="Yaru-${SELECTED_COLOR}"
 fi
 
@@ -141,6 +88,7 @@ if [[ ! -d "/usr/share/themes/$GTK_THEME" ]]; then
 fi
 
 echo "Creating system-wide dconf defaults for future GNOME sessions..."
+
 mkdir -p /etc/dconf/profile
 mkdir -p /etc/dconf/db/local.d
 
@@ -164,8 +112,10 @@ dconf update || true
 apply_for_user() {
     local username="$1"
     local uid
+    local bus
+
     uid="$(id -u "$username")"
-    local bus="unix:path=/run/user/$uid/bus"
+    bus="unix:path=/run/user/$uid/bus"
 
     if [[ ! -S "/run/user/$uid/bus" ]]; then
         echo "No active graphical session found for user: $username"
@@ -188,12 +138,16 @@ apply_for_user() {
 if [[ "$APPLY_TO_ACTIVE_USERS" == "true" ]]; then
     for userhome in /home/*; do
         [[ -d "$userhome" ]] || continue
+
         username="$(basename "$userhome")"
+
         id "$username" >/dev/null 2>&1 || continue
+
         apply_for_user "$username"
     done
 fi
 
 echo "Ubuntu accent color configuration completed."
 echo "A logout/login may be required before all visual changes are visible."
+
 exit 0
