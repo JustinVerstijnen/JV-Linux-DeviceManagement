@@ -13,7 +13,7 @@ set -euo pipefail
 # =========================
 # Variables
 # =========================
-HOMEPAGE_URL="https://www.microsoft365.com/"
+HOMEPAGE_URL="https://justinverstijnen.nl"
 LOCK_HOMEPAGE="false"
 START_PAGE="homepage"
 POLICY_DIR="/etc/firefox/policies"
